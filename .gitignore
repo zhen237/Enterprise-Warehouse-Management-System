@@ -28,3 +28,11 @@ logs/
 # Temporary files
 *.tmp
 *.bak
+
+# Build artifacts
+*.jar
+*.zip
+
+# Delivery folder (keep in repo for reference but not large files)
+交付物/*.jar
+交付物/*.zip
