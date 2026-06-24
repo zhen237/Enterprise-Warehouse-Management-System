@@ -4,19 +4,14 @@
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
       "nodeVersion": "20"
-    },
-    "ghcr.io/devcontainers/features/mysql:1": {
-      "version": "8.0",
-      "port": 3306,
-      "password": "root"
-    },
-    "ghcr.io/devcontainers/features/git:1": {}
+    }
   },
   "forwardPorts": [
+    3306,
     5173,
     8080
   ],
-  "postCreateCommand": "cd /workspace && npm --prefix frontend install && echo '\\n=== 环境就绪 ===' && echo 'Java:' && java -version 2>&1 | head -1 && echo 'Maven:' && mvn -version 2>&1 | head -1 && echo 'Node:' && node -v && echo 'MySQL:' && mysql --version && echo '\\n运行 bash .devcontainer/start.sh 一键启动项目'",
+  "postCreateCommand": "apt-get update -y > /dev/null 2>&1; apt-get install -y mysql-server > /dev/null 2>&1; npm --prefix /workspace/frontend install > /dev/null 2>&1; echo '=== 环境就绪 ==='; echo 'Java:'; java -version 2>&1 | head -1; echo 'Node:'; node -v; echo 'MySQL:'; mysql --version; echo '运行 bash .devcontainer/start.sh 启动项目'",
   "customizations": {
     "vscode": {
       "extensions": [
