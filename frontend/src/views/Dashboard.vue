@@ -38,22 +38,32 @@
         </div>
       </el-card>
     </div>
-    
+
     <div class="charts-section">
       <el-card class="chart-card">
         <template #header>
-          <span>库存概览</span>
+          <div class="card-header">
+            <span>库存分类分布</span>
+          </div>
         </template>
         <div ref="inventoryChart" class="chart"></div>
       </el-card>
+
       <el-card class="chart-card">
         <template #header>
-          <span>出入库趋势</span>
+          <div class="card-header">
+            <span>出入库趋势</span>
+            <el-radio-group v-model="trendRange" size="small" @change="renderTrendChart">
+              <el-radio-button label="today">今日</el-radio-button>
+              <el-radio-button label="7days">近7天</el-radio-button>
+              <el-radio-button label="30days">近30天</el-radio-button>
+            </el-radio-group>
+          </div>
         </template>
         <div ref="trendChart" class="chart"></div>
       </el-card>
     </div>
-    
+
     <div class="recent-section">
       <el-card>
         <template #header>
@@ -70,7 +80,7 @@
           <el-table-column prop="productName" label="商品" width="150" />
           <el-table-column prop="quantity" label="数量" width="80" />
           <el-table-column prop="warehouse" label="仓库" width="120" />
-          <el-table-column prop="time" label="时间" width="150" />
+          <el-table-column prop="time" label="时间" width="180" />
         </el-table>
       </el-card>
     </div>
@@ -78,13 +88,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { Briefcase, DataBoard, ArrowDown, ArrowUp } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import api from '@/utils/api'
 
 const inventoryChart = ref(null)
 const trendChart = ref(null)
+let inventoryInstance = null
+let trendInstance = null
+
+const trendRange = ref('today')
 
 const stats = reactive({
   productCount: 0,
@@ -95,15 +109,31 @@ const stats = reactive({
 
 const recentRecords = ref([])
 
+const inboundRecords = ref([])
+const outboundRecords = ref([])
+
 onMounted(async () => {
-  await loadStats()
-  await loadRecentRecords()
-  initCharts()
+  await Promise.all([loadStats(), loadAllRecords(), loadRecentRecords()])
+  await nextTick()
+  initInventoryChart()
+  renderTrendChart()
+  window.addEventListener('resize', handleResize)
 })
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleResize)
+  if (inventoryInstance) inventoryInstance.dispose()
+  if (trendInstance) trendInstance.dispose()
+})
+
+function handleResize() {
+  inventoryInstance && inventoryInstance.resize()
+  trendInstance && trendInstance.resize()
+}
 
 async function loadStats() {
   try {
-    const [products, warehouses, inboundRecords, outboundRecords] = await Promise.all([
+    const [products, warehouses, inbound, outbound] = await Promise.all([
       api.get('/products'),
       api.get('/warehouses'),
       api.get('/inventory/inbound'),
@@ -111,14 +141,22 @@ async function loadStats() {
     ])
     stats.productCount = products.length
     stats.warehouseCount = warehouses.length
-    stats.inboundCount = inboundRecords.filter(r => {
-      const today = new Date().toDateString()
-      return new Date(r.inboundTime).toDateString() === today
-    }).length
-    stats.outboundCount = outboundRecords.filter(r => {
-      const today = new Date().toDateString()
-      return new Date(r.outboundTime).toDateString() === today
-    }).length
+    const today = new Date().toDateString()
+    stats.inboundCount = inbound.filter(r => new Date(r.inboundTime).toDateString() === today).length
+    stats.outboundCount = outbound.filter(r => new Date(r.outboundTime).toDateString() === today).length
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+async function loadAllRecords() {
+  try {
+    const [inbound, outbound] = await Promise.all([
+      api.get('/inventory/inbound'),
+      api.get('/inventory/outbound')
+    ])
+    inboundRecords.value = inbound
+    outboundRecords.value = outbound
   } catch (error) {
     console.error(error)
   }
@@ -126,28 +164,26 @@ async function loadStats() {
 
 async function loadRecentRecords() {
   try {
-    const [inboundRecords, outboundRecords] = await Promise.all([
+    const [inbound, outbound] = await Promise.all([
       api.get('/inventory/inbound'),
       api.get('/inventory/outbound')
     ])
-    
     const records = [
-      ...inboundRecords.map(r => ({
+      ...inbound.map(r => ({
         type: 'inbound',
         productName: r.product?.productName || '',
         quantity: r.quantity,
         warehouse: r.warehouse?.warehouseName || '',
-        time: r.inboundTime
+        time: formatTime(r.inboundTime)
       })),
-      ...outboundRecords.map(r => ({
+      ...outbound.map(r => ({
         type: 'outbound',
         productName: r.product?.productName || '',
         quantity: r.quantity,
         warehouse: r.warehouse?.warehouseName || '',
-        time: r.outboundTime
+        time: formatTime(r.outboundTime)
       }))
     ]
-    
     records.sort((a, b) => new Date(b.time) - new Date(a.time))
     recentRecords.value = records.slice(0, 10)
   } catch (error) {
@@ -155,42 +191,204 @@ async function loadRecentRecords() {
   }
 }
 
-function initCharts() {
-  if (inventoryChart.value) {
-    const chart = echarts.init(inventoryChart.value)
-    chart.setOption({
-      title: { text: '库存分布', left: 'center' },
-      tooltip: { trigger: 'item' },
-      legend: { orient: 'vertical', left: 'left' },
-      series: [{
-        name: '库存',
-        type: 'pie',
-        radius: '50%',
-        data: [
-          { value: 335, name: '电子产品' },
-          { value: 278, name: '办公用品' },
-          { value: 189, name: '原材料' },
-          { value: 156, name: '其他' }
-        ]
-      }]
+function formatTime(t) {
+  if (!t) return ''
+  const d = new Date(t)
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function initInventoryChart() {
+  if (!inventoryChart.value) return
+  inventoryInstance = echarts.init(inventoryChart.value)
+
+  const categoryMap = {}
+  inboundRecords.value.forEach(r => {
+    const cat = r.product?.category || '未分类'
+    categoryMap[cat] = (categoryMap[cat] || 0) + (r.quantity || 0)
+  })
+  outboundRecords.value.forEach(r => {
+    const cat = r.product?.category || '未分类'
+    categoryMap[cat] = (categoryMap[cat] || 0) + (r.quantity || 0)
+  })
+
+  let pieData = Object.entries(categoryMap).map(([name, value]) => ({ name, value }))
+  if (pieData.length === 0) {
+    pieData = [
+      { value: 335, name: '电子产品' },
+      { value: 278, name: '办公用品' },
+      { value: 189, name: '原材料' },
+      { value: 156, name: '其他' }
+    ]
+  }
+
+  inventoryInstance.setOption({
+    title: { text: '库存分类分布', left: 'center', textStyle: { fontSize: 14 } },
+    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+    legend: { bottom: 0, left: 'center' },
+    color: ['#667eea', '#f093fb', '#4facfe', '#43e97b', '#fa709a', '#fee140', '#30cfd0'],
+    series: [{
+      name: '库存数量',
+      type: 'pie',
+      radius: ['40%', '65%'],
+      avoidLabelOverlap: false,
+      itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 },
+      label: { show: true, formatter: '{b}\n{d}%' },
+      data: pieData
+    }]
+  })
+}
+
+function renderTrendChart() {
+  if (!trendChart.value) return
+  if (!trendInstance) {
+    trendInstance = echarts.init(trendChart.value)
+  }
+
+  const range = trendRange.value
+  let xData = []
+  let inboundData = []
+  let outboundData = []
+  let title = ''
+  let preciseLabels = []
+
+  const now = new Date()
+
+  if (range === 'today') {
+    title = '今日出入库趋势（按小时）'
+    const todayTime = stripTime(now)
+    for (let h = 0; h < 24; h++) {
+      const label = `${String(h).padStart(2, '0')}:00`
+      xData.push(label)
+      preciseLabels.push(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${label}`)
+      inboundData.push(0)
+      outboundData.push(0)
+    }
+    inboundRecords.value.forEach(r => {
+      const d = new Date(r.inboundTime)
+      if (stripTime(d) === todayTime) {
+        inboundData[d.getHours()] += (r.quantity || 0)
+      }
+    })
+    outboundRecords.value.forEach(r => {
+      const d = new Date(r.outboundTime)
+      if (stripTime(d) === todayTime) {
+        outboundData[d.getHours()] += (r.quantity || 0)
+      }
+    })
+  } else if (range === '7days') {
+    title = '近7天出入库趋势（按天）'
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(d.getDate() - i)
+      const monthDay = `${d.getMonth() + 1}/${d.getDate()}`
+      xData.push(monthDay)
+      preciseLabels.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
+      inboundData.push(0)
+      outboundData.push(0)
+    }
+    inboundRecords.value.forEach(r => {
+      const d = new Date(r.inboundTime)
+      const diff = Math.floor((today(now) - stripTime(d)) / 86400000)
+      if (diff >= 0 && diff < 7) {
+        inboundData[6 - diff] += (r.quantity || 0)
+      }
+    })
+    outboundRecords.value.forEach(r => {
+      const d = new Date(r.outboundTime)
+      const diff = Math.floor((today(now) - stripTime(d)) / 86400000)
+      if (diff >= 0 && diff < 7) {
+        outboundData[6 - diff] += (r.quantity || 0)
+      }
+    })
+  } else {
+    title = '近30天出入库趋势（按天）'
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(d.getDate() - i)
+      const monthDay = `${d.getMonth() + 1}/${d.getDate()}`
+      xData.push(monthDay)
+      preciseLabels.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
+      inboundData.push(0)
+      outboundData.push(0)
+    }
+    inboundRecords.value.forEach(r => {
+      const d = new Date(r.inboundTime)
+      const diff = Math.floor((today(now) - stripTime(d)) / 86400000)
+      if (diff >= 0 && diff < 30) {
+        inboundData[29 - diff] += (r.quantity || 0)
+      }
+    })
+    outboundRecords.value.forEach(r => {
+      const d = new Date(r.outboundTime)
+      const diff = Math.floor((today(now) - stripTime(d)) / 86400000)
+      if (diff >= 0 && diff < 30) {
+        outboundData[29 - diff] += (r.quantity || 0)
+      }
     })
   }
-  
-  if (trendChart.value) {
-    const chart = echarts.init(trendChart.value)
-    chart.setOption({
-      title: { text: '近7天出入库趋势', left: 'center' },
-      tooltip: { trigger: 'axis' },
-      legend: { data: ['入库', '出库'] },
-      grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-      xAxis: { type: 'category', data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'] },
-      yAxis: { type: 'value' },
-      series: [
-        { name: '入库', type: 'line', data: [120, 132, 101, 134, 190, 230, 210] },
-        { name: '出库', type: 'line', data: [82, 93, 71, 94, 140, 180, 160] }
-      ]
-    })
-  }
+
+  trendInstance.setOption({
+    title: { text: title, left: 'center', textStyle: { fontSize: 14 } },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'cross' },
+      formatter: params => {
+        const idx = params[0].dataIndex
+        const precise = preciseLabels[idx]
+        let html = `<div style="font-weight:bold;margin-bottom:4px">${precise}</div>`
+        params.forEach(p => {
+          html += `${p.marker}${p.seriesName}: <b>${p.value}</b><br/>`
+        })
+        return html
+      }
+    },
+    legend: { data: ['入库', '出库'], bottom: 0 },
+    grid: { left: '3%', right: '4%', bottom: '12%', containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: xData,
+      axisLabel: { interval: range === 'today' ? 2 : range === '7days' ? 0 : 2 }
+    },
+    yAxis: { type: 'value', name: '数量' },
+    series: [
+      {
+        name: '入库',
+        type: 'bar',
+        data: inboundData,
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: '#4facfe' },
+            { offset: 1, color: '#00f2fe' }
+          ]),
+          borderRadius: [4, 4, 0, 0]
+        },
+        emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(79,172,254,0.5)' } }
+      },
+      {
+        name: '出库',
+        type: 'bar',
+        data: outboundData,
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: '#43e97b' },
+            { offset: 1, color: '#38f9d7' }
+          ]),
+          borderRadius: [4, 4, 0, 0]
+        },
+        emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(67,233,123,0.5)' } }
+      }
+    ]
+  }, true)
+}
+
+function stripTime(d) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+}
+
+function today(now) {
+  const base = now || new Date()
+  return new Date(base.getFullYear(), base.getMonth(), base.getDate()).getTime()
 }
 </script>
 
@@ -199,6 +397,12 @@ function initCharts() {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .stats-cards {
@@ -267,12 +471,12 @@ function initCharts() {
 }
 
 .chart-card {
-  height: 350px;
+  height: 380px;
 }
 
 .chart {
   width: 100%;
-  height: calc(100% - 48px);
+  height: calc(100% - 80px);
 }
 
 .recent-section {

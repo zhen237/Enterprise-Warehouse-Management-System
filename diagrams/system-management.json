@@ -1,0 +1,42 @@
+{
+  "title": "系统管理模块 - 业务逻辑图",
+  "pageWidth": 14,
+  "pageHeight": 9,
+  "pages": [
+    {
+      "name": "系统管理模块",
+      "nodes": [
+        { "id": "start", "text": "用户发起登录", "shape": "ellipse", "x": 1, "y": 7.2, "w": 2.2, "h": 0.8, "fill": "#ECFDF5", "line": "#10B981" },
+        { "id": "input", "text": "输入用户名和密码", "shape": "rectangle", "x": 4, "y": 7.2, "w": 2.4, "h": 0.8, "fill": "#EFF6FF", "line": "#3B82F6" },
+        { "id": "query", "text": "根据用户名查询用户", "shape": "rectangle", "x": 7, "y": 7.2, "w": 2.4, "h": 0.8, "fill": "#FEF3C7", "line": "#D97706" },
+        { "id": "exist", "text": "用户名是否存在?", "shape": "diamond", "x": 10.2, "y": 7.1, "w": 2.6, "h": 1, "fill": "#FEF3C7", "line": "#D97706" },
+        { "id": "disable", "text": "检查用户启用状态", "shape": "rectangle", "x": 1, "y": 5.3, "w": 2.4, "h": 0.8, "fill": "#EFF6FF", "line": "#3B82F6" },
+        { "id": "checkEn", "text": "用户是否启用?", "shape": "diamond", "x": 4, "y": 5.2, "w": 2.4, "h": 1, "fill": "#FEF3C7", "line": "#D97706" },
+        { "id": "pwd", "text": "BCrypt密码比对", "shape": "rectangle", "x": 7, "y": 5.3, "w": 2.4, "h": 0.8, "fill": "#EFF6FF", "line": "#3B82F6" },
+        { "id": "pwdOk", "text": "密码是否正确?", "shape": "diamond", "x": 10.2, "y": 5.2, "w": 2.6, "h": 1, "fill": "#FEF3C7", "line": "#D97706" },
+        { "id": "resp", "text": "返回用户信息(Id/用户名/姓名/角色)", "shape": "rectangle", "x": 5.5, "y": 3.3, "w": 3.4, "h": 0.8, "fill": "#ECFDF5", "line": "#10B981" },
+        { "id": "loginOk", "text": "登录成功", "shape": "ellipse", "x": 10.5, "y": 3.3, "w": 2, "h": 0.8, "fill": "#ECFDF5", "line": "#10B981" },
+        { "id": "err1", "text": "用户名不存在", "shape": "rectangle", "x": 10.5, "y": 5.3, "w": 2, "h": 0.8, "fill": "#FEE2E2", "line": "#DC2626" },
+        { "id": "err2", "text": "用户已被禁用", "shape": "rectangle", "x": 4.5, "y": 3.3, "w": 2, "h": 0.8, "fill": "#FEE2E2", "line": "#DC2626" },
+        { "id": "err3", "text": "密码错误", "shape": "rectangle", "x": 10.5, "y": 1.5, "w": 2, "h": 0.8, "fill": "#FEE2E2", "line": "#DC2626" },
+        { "id": "api", "text": "API: POST /api/auth/login", "shape": "rectangle", "x": 1, "y": 1.5, "w": 2.8, "h": 0.7, "fill": "#F5F3FF", "line": "#8B5CF6" },
+        { "id": "impl", "text": "实现类: AuthServiceImpl", "shape": "rectangle", "x": 4.5, "y": 1.5, "w": 2.8, "h": 0.7, "fill": "#F5F3FF", "line": "#8B5CF6" },
+        { "id": "tech", "text": "技术: Spring Security + BCrypt", "shape": "rectangle", "x": 8, "y": 1.5, "w": 3.2, "h": 0.7, "fill": "#F5F3FF", "line": "#8B5CF6" }
+      ],
+      "connections": [
+        { "from": "start", "to": "input", "text": "提交凭证" },
+        { "from": "input", "to": "query", "text": "按用户名查询" },
+        { "from": "query", "to": "exist", "text": "查 User 表" },
+        { "from": "exist", "to": "disable", "text": "存在" },
+        { "from": "exist", "to": "err1", "text": "不存在" },
+        { "from": "disable", "to": "checkEn", "text": "读取 enabled" },
+        { "from": "checkEn", "to": "pwd", "text": "已启用" },
+        { "from": "checkEn", "to": "err2", "text": "已禁用" },
+        { "from": "pwd", "to": "pwdOk", "text": "matches()" },
+        { "from": "pwdOk", "to": "resp", "text": "正确" },
+        { "from": "pwdOk", "to": "err3", "text": "错误" },
+        { "from": "resp", "to": "loginOk", "text": "返回 LoginResponse" }
+      ]
+    }
+  ]
+}

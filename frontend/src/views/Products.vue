@@ -64,7 +64,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import api from '@/utils/api'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const products = ref([])
 const searchKeyword = ref('')
@@ -108,9 +108,10 @@ function editProduct(product) {
 }
 
 function deleteProduct(product) {
-  ElMessage.confirm(`确定删除商品 ${product.productName} 吗？`, '提示', {
+  ElMessageBox.confirm(`确定删除商品 ${product.productName} 吗？`, '提示', {
     confirmButtonText: '确定',
-    cancelButtonText: '取消'
+    cancelButtonText: '取消',
+    type: 'warning'
   }).then(async () => {
     try {
       await api.delete(`/products/${product.id}`)
@@ -119,7 +120,7 @@ function deleteProduct(product) {
     } catch (error) {
       ElMessage.error(error.message)
     }
-  })
+  }).catch(() => {})
 }
 
 async function saveProduct() {
