@@ -1,3 +1,13 @@
+<!--
+  仓库管理页面组件
+  功能：仓库的增删改查、统计视图（品种数、总价值）
+  接口：
+    GET    /api/warehouses              获取所有仓库
+    GET    /api/warehouses/statistics   获取仓库统计信息
+    POST   /api/warehouses              新增仓库（仅管理员）
+    PUT    /api/warehouses/{id}         修改仓库（仅管理员）
+    DELETE /api/warehouses/{id}         删除仓库（仅管理员）
+-->
 <template>
   <div class="warehouses-page">
     <el-card>
@@ -8,7 +18,7 @@
             <el-button @click="showStats = !showStats" type="warning" plain>
               {{ showStats ? '返回列表' : '查看统计' }}
             </el-button>
-            <el-button type="primary" @click="showAddModal = true">添加仓库</el-button>
+            <el-button v-if="isAdmin()" type="primary" @click="showAddModal = true">添加仓库</el-button>
           </div>
         </div>
       </template>
@@ -31,8 +41,9 @@
           </el-table-column>
           <el-table-column label="操作" width="150">
             <template #default="scope">
-              <el-button type="text" @click="editWarehouse(scope.row)">编辑</el-button>
-              <el-button type="text" @click="deleteWarehouse(scope.row)" style="color: #f56c6c">删除</el-button>
+              <el-button v-if="isAdmin()" type="text" @click="editWarehouse(scope.row)">编辑</el-button>
+              <el-button v-if="isAdmin()" type="text" @click="deleteWarehouse(scope.row)" style="color: #f56c6c">删除</el-button>
+              <el-text v-if="!isAdmin()" type="info" size="small">仅管理员可操作</el-text>
             </template>
           </el-table-column>
         </el-table>
@@ -119,6 +130,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import api from '@/utils/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { isAdmin } from '@/store/user'
 
 const warehouses = ref([])
 const showAddModal = ref(false)

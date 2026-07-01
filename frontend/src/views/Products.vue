@@ -1,10 +1,20 @@
+<!--
+  商品管理页面组件
+  功能：商品的增删改查、搜索
+  接口：
+    GET    /api/products          获取所有商品
+    POST   /api/products          新增商品（仅管理员）
+    PUT    /api/products/{id}     修改商品（仅管理员）
+    DELETE /api/products/{id}     软删除商品（仅管理员）
+    GET    /api/products/search   按名称搜索
+-->
 <template>
   <div class="products-page">
     <el-card>
       <template #header>
         <div class="header-actions">
           <span>商品管理</span>
-          <el-button type="primary" @click="showAddModal = true">添加商品</el-button>
+          <el-button v-if="isAdmin()" type="primary" @click="showAddModal = true">添加商品</el-button>
         </div>
       </template>
       
@@ -25,8 +35,9 @@
         <el-table-column prop="description" label="描述" />
         <el-table-column label="操作" width="150">
           <template #default="scope">
-            <el-button type="text" @click="editProduct(scope.row)">编辑</el-button>
-            <el-button type="text" @click="deleteProduct(scope.row)" style="color: #f56c6c">删除</el-button>
+            <el-button v-if="isAdmin()" type="text" @click="editProduct(scope.row)">编辑</el-button>
+            <el-button v-if="isAdmin()" type="text" @click="deleteProduct(scope.row)" style="color: #f56c6c">删除</el-button>
+            <el-text v-if="!isAdmin()" type="info" size="small">仅管理员可操作</el-text>
           </template>
         </el-table-column>
       </el-table>
@@ -65,6 +76,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import api from '@/utils/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { isAdmin } from '@/store/user'
 
 const products = ref([])
 const searchKeyword = ref('')

@@ -1,3 +1,17 @@
+<!--
+  主布局组件
+  功能：提供侧边栏导航 + 顶栏 + 内容区的整体布局
+  侧边栏包含：
+    - 菜单导航（首页/商品/仓库/库存/入库/出库/盘点/报表/人员管理）
+    - 操作流程指南（8步引导，可折叠）
+  顶栏包含：用户信息展示、退出登录
+  内容区通过 <router-view> 渲染子路由页面
+  
+  权限控制：
+    - 管理员 (ADMIN)：显示所有菜单项
+    - 操作员 (OPERATOR)：隐藏"仓库管理"、"报表统计"和"人员管理"菜单
+    - 普通员工 (EMPLOYEE)：仅显示"首页"、"商品管理"、"库存查询"菜单
+-->
 <template>
   <div class="layout">
     <el-container>
@@ -19,7 +33,8 @@
             <el-icon><component :is="icons.Briefcase" /></el-icon>
             <span>商品管理</span>
           </el-menu-item>
-          <el-menu-item index="/warehouses">
+          <!-- 仅管理员可访问仓库管理 -->
+          <el-menu-item v-if="isAdmin" index="/warehouses">
             <el-icon><component :is="icons.DataBoard" /></el-icon>
             <span>仓库管理</span>
           </el-menu-item>
@@ -39,9 +54,15 @@
             <el-icon><component :is="icons.Check" /></el-icon>
             <span>库存盘点</span>
           </el-menu-item>
-          <el-menu-item index="/reports">
+          <!-- 仅管理员可访问报表统计 -->
+          <el-menu-item v-if="isAdmin" index="/reports">
             <el-icon><component :is="icons.DataAnalysis" /></el-icon>
             <span>报表统计</span>
+          </el-menu-item>
+          <!-- 仅管理员可访问人员管理 -->
+          <el-menu-item v-if="isAdmin" index="/users">
+            <el-icon><component :is="icons.User" /></el-icon>
+            <span>人员管理</span>
           </el-menu-item>
         </el-menu>
 
@@ -72,6 +93,7 @@
         <el-header class="header">
           <div class="header-right">
             <span>欢迎, {{ user?.name }}</span>
+            <span class="role-badge" :class="user?.role">{{ user?.role }}</span>
             <el-button type="text" @click="logout">退出登录</el-button>
           </div>
         </el-header>
@@ -95,17 +117,30 @@ import {
   ArrowDown, 
   ArrowUp, 
   Check, 
-  DataAnalysis 
+  DataAnalysis,
+  User
 } from '@element-plus/icons-vue'
 import { getCurrentUser, removeCurrentUser } from '@/store/user'
 
 const router = useRouter()
 const route = useRoute()
 
-const icons = { HomeFilled, Briefcase, DataBoard, Box, ArrowDown, ArrowUp, Check, DataAnalysis }
+const icons = { HomeFilled, Briefcase, DataBoard, Box, ArrowDown, ArrowUp, Check, DataAnalysis, User }
 
 const user = ref(getCurrentUser())
 const guideOpen = ref(true)
+
+// 判断是否为管理员
+const isAdmin = computed(() => {
+  const u = getCurrentUser()
+  return u && u.role === 'ADMIN'
+})
+
+// 判断是否为操作员
+const isOperator = computed(() => {
+  const u = getCurrentUser()
+  return u && u.role === 'OPERATOR'
+})
 
 const guideSteps = [
   { path: '/', title: '① 登录系统', desc: '用户名密码登录' },
@@ -180,6 +215,28 @@ function logout() {
   display: flex;
   align-items: center;
   gap: 20px;
+}
+
+.role-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.role-badge.ADMIN {
+  background-color: #e74c3c;
+  color: white;
+}
+
+.role-badge.OPERATOR {
+  background-color: #3498db;
+  color: white;
+}
+
+.role-badge.EMPLOYEE {
+  background-color: #95a5a6;
+  color: white;
 }
 
 .main {

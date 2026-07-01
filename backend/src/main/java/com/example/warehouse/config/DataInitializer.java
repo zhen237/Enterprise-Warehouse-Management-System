@@ -7,9 +7,25 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+/**
+ * 数据初始化配置类
+ * 应用启动时若数据库为空，则自动创建默认管理员、操作员、供应商、商品、仓库等基础数据
+ * 保证系统首次运行即可登录并使用
+ */
 @Configuration
 public class DataInitializer {
     
+    /**
+     * 数据初始化命令行运行器
+     * Spring Boot 启动后自动执行，检查各表数据是否存在，不存在则插入默认数据
+     *
+     * @param userRepository      用户仓库
+     * @param productRepository   商品仓库
+     * @param warehouseRepository  仓库仓库
+     * @param supplierRepository   供应商仓库
+     * @param passwordEncoder      密码编码器
+     * @return 命令行运行器实例
+     */
     @Bean
     public CommandLineRunner initData(UserRepository userRepository,
                                       ProductRepository productRepository,
@@ -18,23 +34,35 @@ public class DataInitializer {
                                       PasswordEncoder passwordEncoder) {
         return args -> {
             if (userRepository.count() == 0) {
+                // 管理员：拥有全部权限，管理商品/仓库/用户、查看报表
                 User admin = new User();
                 admin.setUsername("admin");
                 admin.setPassword(passwordEncoder.encode("admin123"));
                 admin.setRole("ADMIN");
-                admin.setName("管理员");
+                admin.setName("系统管理员");
                 admin.setPhone("13800138000");
                 admin.setEnabled(true);
                 userRepository.save(admin);
                 
+                // 操作员：可查看库存、进行出入库操作，不能修改基础数据
                 User operator = new User();
                 operator.setUsername("operator");
                 operator.setPassword(passwordEncoder.encode("operator123"));
                 operator.setRole("OPERATOR");
-                operator.setName("操作员");
+                operator.setName("仓管员");
                 operator.setPhone("13900139000");
                 operator.setEnabled(true);
                 userRepository.save(operator);
+                
+                // 普通员工：只能查看商品和库存信息
+                User employee = new User();
+                employee.setUsername("employee");
+                employee.setPassword(passwordEncoder.encode("employee123"));
+                employee.setRole("EMPLOYEE");
+                employee.setName("普通员工");
+                employee.setPhone("13700137000");
+                employee.setEnabled(true);
+                userRepository.save(employee);
             }
             
             if (supplierRepository.count() == 0) {
