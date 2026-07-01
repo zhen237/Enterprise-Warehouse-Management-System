@@ -122,10 +122,11 @@ const getRoleLabel = (role) => {
 // 加载用户列表
 const loadUsers = async () => {
   try {
-    const res = await api.get('/api/users')
-    users.value = res.data.data
-  } catch {
-    ElMessage.error('获取用户列表失败')
+    const userList = await api.get('/users')
+    users.value = userList
+  } catch (err) {
+    console.error('加载用户失败:', err)
+    ElMessage.error('获取用户列表失败: ' + (err.message || '未知错误'))
   }
 }
 
@@ -147,16 +148,16 @@ const handleSubmit = () => {
     
     try {
       if (isEdit.value) {
-        await api.put(`/api/users/${form.id}`, form)
+        await api.put(`/users/${form.id}`, form)
         ElMessage.success('更新成功')
       } else {
-        await api.post('/api/users', form)
+        await api.post('/users', form)
         ElMessage.success('添加成功')
       }
       dialogVisible.value = false
       loadUsers()
     } catch (err) {
-      ElMessage.error(err.response?.data?.message || '操作失败')
+      ElMessage.error(err.message || '操作失败')
     }
   })
 }
@@ -164,11 +165,11 @@ const handleSubmit = () => {
 // 启用/禁用用户
 const toggleStatus = async (row) => {
   try {
-    await api.patch(`/api/users/${row.id}/toggle?enabled=${!row.enabled}`)
+    await api.patch(`/users/${row.id}/toggle?enabled=${!row.enabled}`)
     ElMessage.success(`已${row.enabled ? '禁用' : '启用'}用户`)
     loadUsers()
-  } catch {
-    ElMessage.error('操作失败')
+  } catch (err) {
+    ElMessage.error(err.message || '操作失败')
   }
 }
 
@@ -176,7 +177,7 @@ const toggleStatus = async (row) => {
 const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm(`确定删除用户"${row.name}"吗？`, '提示', { type: 'warning' })
-    await api.delete(`/api/users/${row.id}`)
+    await api.delete(`/users/${row.id}`)
     ElMessage.success('删除成功')
     loadUsers()
   } catch {}
