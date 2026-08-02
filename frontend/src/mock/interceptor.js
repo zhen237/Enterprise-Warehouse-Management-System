@@ -17,9 +17,8 @@ import {
   isMockMode
 } from './data.js'
 
-/**
- * 将 Mock 商品数据转换为后端 API 格式
- */
+// ========== 数据转换函数 ==========
+
 function transformProduct(p) {
   return {
     id: p.id,
@@ -35,15 +34,8 @@ function transformProduct(p) {
   }
 }
 
-/**
- * 将 Mock 仓库数据转换为后端 API 格式
- */
 function transformWarehouse(w) {
-  const totalItems = mockInventories
-    .filter(i => i.warehouseId === w.id)
-    .map(i => i.productId)
-    .filter((v, i, a) => a.indexOf(v) === i)
-    .length
+  const totalItems = [...new Set(mockInventories.filter(i => i.warehouseId === w.id).map(i => i.productId))].length
   return {
     id: w.id,
     warehouseCode: w.warehouseCode,
@@ -55,9 +47,112 @@ function transformWarehouse(w) {
   }
 }
 
-/**
- * 根据请求路径和方法返回对应的 Mock 数据
- */
+function transformInventory(inv) {
+  const product = mockProducts.find(p => p.id === inv.productId)
+  const warehouse = mockWarehouses.find(w => w.id === inv.warehouseId)
+  return {
+    id: inv.id,
+    productId: inv.productId,
+    warehouseId: inv.warehouseId,
+    quantity: inv.quantity,
+    lastUpdated: inv.lastUpdated,
+    product: {
+      id: product?.id,
+      productCode: product?.productCode || '',
+      productName: product?.name || '未知商品',
+      category: product?.category || '',
+      unit: product?.unit || '',
+      price: product?.price || 0
+    },
+    warehouse: {
+      id: warehouse?.id,
+      warehouseCode: warehouse?.warehouseCode || '',
+      warehouseName: warehouse?.name || '未知仓库'
+    },
+    minStock: product?.minStock || 0,
+    maxStock: product?.maxStock || 9999,
+    totalValue: (product?.price || 0) * inv.quantity
+  }
+}
+
+function transformInbound(record) {
+  const product = mockProducts.find(p => p.id === record.productId)
+  const warehouse = mockWarehouses.find(w => w.id === record.warehouseId)
+  const operator = mockUsers.find(u => u.id === record.operatorId)
+  return {
+    id: record.id,
+    inboundNo: record.inboundNo || `IN${String(record.id).padStart(6, '0')}`,
+    productId: record.productId,
+    warehouseId: record.warehouseId,
+    quantity: record.quantity,
+    unitPrice: record.unitPrice,
+    totalPrice: record.totalPrice || record.quantity * record.unitPrice,
+    remark: record.remark || '',
+    confirmed: record.confirmed !== false,
+    inboundTime: record.inboundTime || record.createdAt,
+    product: {
+      id: product?.id,
+      productCode: product?.productCode || '',
+      productName: product?.name || '未知商品'
+    },
+    warehouse: {
+      id: warehouse?.id,
+      warehouseCode: warehouse?.warehouseCode || '',
+      warehouseName: warehouse?.name || '未知仓库'
+    },
+    operator: operator ? { id: operator.id, name: operator.name } : null
+  }
+}
+
+function transformOutbound(record) {
+  const product = mockProducts.find(p => p.id === record.productId)
+  const warehouse = mockWarehouses.find(w => w.id === record.warehouseId)
+  const operator = mockUsers.find(u => u.id === record.operatorId)
+  return {
+    id: record.id,
+    outboundNo: record.outboundNo || `OUT${String(record.id).padStart(6, '0')}`,
+    productId: record.productId,
+    warehouseId: record.warehouseId,
+    quantity: record.quantity,
+    unitPrice: record.unitPrice,
+    totalPrice: record.totalPrice || record.quantity * record.unitPrice,
+    remark: record.remark || '',
+    confirmed: record.confirmed !== false,
+    outboundTime: record.outboundTime || record.createdAt,
+    product: {
+      id: product?.id,
+      productCode: product?.productCode || '',
+      productName: product?.name || '未知商品'
+    },
+    warehouse: {
+      id: warehouse?.id,
+      warehouseCode: warehouse?.warehouseCode || '',
+      warehouseName: warehouse?.name || '未知仓库'
+    },
+    operator: operator ? { id: operator.id, name: operator.name } : null
+  }
+}
+
+function transformCheck(record) {
+  const warehouse = mockWarehouses.find(w => w.id === record.warehouseId)
+  const operator = mockUsers.find(u => u.id === record.operatorId)
+  return {
+    id: record.id,
+    warehouseId: record.warehouseId,
+    status: record.status || 'COMPLETED',
+    remark: record.remark || '',
+    checkTime: record.checkTime || record.createdAt,
+    warehouse: {
+      id: warehouse?.id,
+      warehouseName: warehouse?.name || '未知仓库'
+    },
+    operator: operator ? { id: operator.id, name: operator.name } : null,
+    items: record.items || []
+  }
+}
+
+// ========== 主响应函数 ==========
+
 export function getMockResponse(url, method, data) {
   // 登录接口
   if (url.includes('/auth/login') && method === 'post') {
@@ -66,7 +161,7 @@ export function getMockResponse(url, method, data) {
   }
 
   // 商品接口
-  if (url.includes('/products')) {
+  if (url.includes('/products') && !url.includes('/warehouse')) {
     if (method === 'get') {
       if (url.includes('/low-stock')) {
         const lowStock = mockProducts.filter(p => {
@@ -147,77 +242,74 @@ export function getMockResponse(url, method, data) {
     }
   }
 
-  // 库存接口
-  if (url.includes('/inventory')) {
+  // 库存查询接口（GET /inventory）
+  if (url === '/inventory' || (url.includes('/inventory') && !url.includes('inbound') && !url.includes('outbound'))) {
     if (method === 'get') {
-      const inventory = mockInventories.map(inv => {
-        const product = mockProducts.find(p => p.id === inv.productId)
-        const warehouse = mockWarehouses.find(w => w.id === inv.warehouseId)
-        return {
-          id: inv.id,
-          productId: inv.productId,
-          warehouseId: inv.warehouseId,
-          quantity: inv.quantity,
-          lastUpdated: inv.lastUpdated,
-          product: {
-            id: product?.id,
-            productCode: product?.productCode || '',
-            productName: product?.name || '未知商品',
-            category: product?.category || '',
-            unit: product?.unit || '',
-            price: product?.price || 0
-          },
-          warehouse: {
-            id: warehouse?.id,
-            warehouseCode: warehouse?.warehouseCode || '',
-            warehouseName: warehouse?.name || '未知仓库'
-          },
-          minStock: product?.minStock || 0,
-          maxStock: product?.maxStock || 9999,
-          totalValue: (product?.price || 0) * inv.quantity
-        }
-      })
-      return mockResponse(inventory)
+      return mockResponse(mockInventories.map(transformInventory))
     }
   }
 
-  // 入库接口
-  if (url.includes('/inbound')) {
+  // 入库接口（/inventory/inbound）
+  if (url.includes('/inventory/inbound') || url === '/inbound') {
     if (method === 'get') {
-      return mockResponse(mockInboundRecords)
+      return mockResponse(mockInboundRecords.map(transformInbound))
     }
     if (method === 'post') {
+      // 确认入库
+      if (url.includes('/confirm')) {
+        const id = parseInt(url.split('/').slice(-2)[0])
+        const record = mockInboundRecords.find(r => r.id === id)
+        if (record) {
+          record.confirmed = true
+          // 更新库存
+          const inv = mockInventories.find(i => i.productId === record.productId && i.warehouseId === record.warehouseId)
+          if (inv) {
+            inv.quantity += record.quantity
+            inv.lastUpdated = new Date().toISOString().replace('T', ' ').substring(0, 19)
+          } else {
+            mockInventories.push({
+              id: mockInventories.length + 1,
+              productId: record.productId,
+              warehouseId: record.warehouseId,
+              quantity: record.quantity,
+              lastUpdated: new Date().toISOString().replace('T', ' ').substring(0, 19)
+            })
+          }
+        }
+        return mockResponse({ success: true })
+      }
+      // 新建入库
       const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
       const newRecord = {
         ...data,
         id: mockInboundRecords.length + 1,
+        inboundNo: `IN${String(mockInboundRecords.length + 1).padStart(6, '0')}`,
         totalPrice: data.quantity * data.unitPrice,
+        confirmed: false,
+        inboundTime: now,
         createdAt: now
       }
       mockInboundRecords.push(newRecord)
-      const inv = mockInventories.find(i => i.productId === data.productId && i.warehouseId === data.warehouseId)
-      if (inv) {
-        inv.quantity += data.quantity
-        inv.lastUpdated = now
-      } else {
-        mockInventories.push({
-          id: mockInventories.length + 1,
-          productId: data.productId,
-          warehouseId: data.warehouseId,
-          quantity: data.quantity,
-          lastUpdated: now
-        })
-      }
-      return mockResponse(newRecord)
+      return mockResponse(transformInbound(newRecord))
     }
   }
 
-  // 出库接口
-  if (url.includes('/outbound')) {
+  // 出库接口（/inventory/outbound）
+  if (url.includes('/inventory/outbound') || url === '/outbound') {
     if (method === 'get') {
-      return mockResponse(mockOutboundRecords)
+      return mockResponse(mockOutboundRecords.map(transformOutbound))
     }
     if (method === 'post') {
+      // 确认出库
+      if (url.includes('/confirm')) {
+        const id = parseInt(url.split('/').slice(-2)[0])
+        const record = mockOutboundRecords.find(r => r.id === id)
+        if (record) {
+          record.confirmed = true
+        }
+        return mockResponse({ success: true })
+      }
+      // 新建出库
       const inv = mockInventories.find(i => i.productId === data.productId && i.warehouseId === data.warehouseId)
       if (!inv || inv.quantity < data.quantity) {
         throw new Error('库存不足')
@@ -226,20 +318,23 @@ export function getMockResponse(url, method, data) {
       const newRecord = {
         ...data,
         id: mockOutboundRecords.length + 1,
+        outboundNo: `OUT${String(mockOutboundRecords.length + 1).padStart(6, '0')}`,
         totalPrice: data.quantity * data.unitPrice,
+        confirmed: false,
+        outboundTime: now,
         createdAt: now
       }
       mockOutboundRecords.push(newRecord)
       inv.quantity -= data.quantity
       inv.lastUpdated = now
-      return mockResponse(newRecord)
+      return mockResponse(transformOutbound(newRecord))
     }
   }
 
-  // 盘点接口
-  if (url.includes('/check')) {
-    if (url.includes('/records') && method === 'get') {
-      return mockResponse(mockInventoryChecks)
+  // 盘点接口（/inventory/check 或 /check）
+  if (url.includes('/inventory/check') || url === '/check' || url.includes('/check/records')) {
+    if (method === 'get') {
+      return mockResponse(mockInventoryChecks.map(transformCheck))
     }
     if (method === 'post') {
       const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
@@ -247,9 +342,11 @@ export function getMockResponse(url, method, data) {
         ...data,
         id: mockInventoryChecks.length + 1,
         status: 'COMPLETED',
+        checkTime: now,
         createdAt: now
       }
       mockInventoryChecks.push(newRecord)
+      // 更新库存
       data.items?.forEach(item => {
         const inv = mockInventories.find(i => i.productId === item.productId && i.warehouseId === data.warehouseId)
         if (inv) {
@@ -257,19 +354,25 @@ export function getMockResponse(url, method, data) {
           inv.lastUpdated = now
         }
       })
-      return mockResponse(newRecord)
+      return mockResponse(transformCheck(newRecord))
     }
   }
 
   // 用户接口
   if (url.includes('/users')) {
     if (method === 'get') {
-      return mockResponse(mockUsers.map(u => ({ ...u, password: undefined })))
+      return mockResponse(mockUsers.map(u => ({
+        id: u.id,
+        username: u.username,
+        name: u.name,
+        role: u.role,
+        enabled: u.enabled
+      })))
     }
     if (method === 'post') {
       const newUser = { ...data, id: mockUsers.length + 1, enabled: true }
       mockUsers.push(newUser)
-      return mockResponse({ ...newUser, password: undefined })
+      return mockResponse({ id: newUser.id, username: newUser.username, name: newUser.name, role: newUser.role, enabled: true })
     }
     if (method === 'put') {
       const id = parseInt(url.split('/').pop())
@@ -287,26 +390,33 @@ export function getMockResponse(url, method, data) {
         return mockResponse(null)
       }
     }
-    if (method === 'patch') {
-      const id = parseInt(url.split('/')[0].split('/').pop())
-      const enabled = url.includes('enabled=true')
-      const user = mockUsers.find(u => u.id === id)
-      if (user) {
-        user.enabled = enabled
-        return mockResponse({ ...user, password: undefined })
-      }
-    }
   }
 
   // 报表统计接口
-  if (url.includes('/reports') || url.includes('/data')) {
+  if (url.includes('/reports') || url.includes('/statistics') || url === '/data') {
     if (url.includes('/trend')) {
       return mockResponse(mockStatistics.trendData)
     }
     if (url.includes('/category')) {
       return mockResponse(mockStatistics.categoryData)
     }
-    return mockResponse(mockStatistics)
+    // 首页统计数据
+    return mockResponse({
+      totalProducts: mockProducts.length,
+      totalWarehouses: mockWarehouses.length,
+      totalStockValue: mockInventories.reduce((sum, i) => {
+        const product = mockProducts.find(p => p.id === i.productId)
+        return sum + (product?.price || 0) * i.quantity
+      }, 0),
+      lowStockAlerts: mockProducts.filter(p => {
+        const inv = mockInventories.find(i => i.productId === p.id)
+        return inv && inv.quantity < p.minStock
+      }).length,
+      todayInbound: mockInboundRecords.length,
+      todayOutbound: mockOutboundRecords.length,
+      trendData: mockStatistics.trendData,
+      categoryData: mockStatistics.categoryData
+    })
   }
 
   // 供应商接口
@@ -319,8 +429,7 @@ export function getMockResponse(url, method, data) {
 }
 
 /**
- * 安装 Mock 拦截器到 axios 实例
- * 在 Mock 模式下，直接返回 Mock Promise，不发送真实请求
+ * 安装 Mock 拦截器
  */
 export function installMockInterceptor(api) {
   api.interceptors.request.use((config) => {
@@ -332,7 +441,6 @@ export function installMockInterceptor(api) {
     const method = (config.method || 'get').toLowerCase()
     const data = config.data ? (typeof config.data === 'string' ? JSON.parse(config.data) : config.data) : {}
 
-    // 直接返回 Mock 响应的 Promise
     return new Promise((resolve, reject) => {
       setTimeout(() => {
         try {
@@ -352,5 +460,4 @@ export function installMockInterceptor(api) {
   })
 }
 
-// 导出检查函数
 export { isMockMode }
