@@ -1,0 +1,53 @@
+{
+  "title": "物资管理模块 - 业务逻辑图",
+  "pageWidth": 14,
+  "pageHeight": 9,
+  "pages": [
+    {
+      "name": "物资管理模块",
+      "nodes": [
+        { "id": "start", "text": "物资管理", "shape": "ellipse", "x": 6.2, "y": 8, "w": 2, "h": 0.7, "fill": "#ECFDF5", "line": "#10B981" },
+        { "id": "add", "text": "新增物资", "shape": "rectangle", "x": 0.8, "y": 6.5, "w": 2, "h": 0.7, "fill": "#EFF6FF", "line": "#3B82F6" },
+        { "id": "add1", "text": "输入物资信息\n编码/名称/分类/单位/价格/描述", "shape": "rectangle", "x": 0.5, "y": 5.2, "w": 2.6, "h": 1, "fill": "#EFF6FF", "line": "#3B82F6" },
+        { "id": "add2", "text": "校验编码唯一性", "shape": "diamond", "x": 0.8, "y": 3.7, "w": 2, "h": 0.9, "fill": "#FEF3C7", "line": "#D97706" },
+        { "id": "add3", "text": "保存到数据库", "shape": "rectangle", "x": 0.8, "y": 2.3, "w": 2, "h": 0.7, "fill": "#ECFDF5", "line": "#10B981" },
+        { "id": "list", "text": "物资列表查询", "shape": "rectangle", "x": 3.8, "y": 6.5, "w": 2.2, "h": 0.7, "fill": "#EFF6FF", "line": "#3B82F6" },
+        { "id": "list1", "text": "查询所有启用物资", "shape": "rectangle", "x": 3.8, "y": 5.2, "w": 2.2, "h": 0.7, "fill": "#EFF6FF", "line": "#3B82F6" },
+        { "id": "list2", "text": "SQL: WHERE enabled=true", "shape": "rectangle", "x": 3.5, "y": 3.9, "w": 2.8, "h": 0.7, "fill": "#FEF3C7", "line": "#D97706" },
+        { "id": "list3", "text": "返回物资列表", "shape": "rectangle", "x": 3.8, "y": 2.6, "w": 2.2, "h": 0.7, "fill": "#ECFDF5", "line": "#10B981" },
+        { "id": "edit", "text": "修改物资", "shape": "rectangle", "x": 7.2, "y": 6.5, "w": 2, "h": 0.7, "fill": "#EFF6FF", "line": "#3B82F6" },
+        { "id": "edit1", "text": "根据ID查询物资", "shape": "rectangle", "x": 7.2, "y": 5.2, "w": 2.2, "h": 0.7, "fill": "#EFF6FF", "line": "#3B82F6" },
+        { "id": "edit2", "text": "更新字段\n名称/分类/单位/价格/描述", "shape": "rectangle", "x": 7, "y": 3.7, "w": 2.6, "h": 1, "fill": "#FEF3C7", "line": "#D97706" },
+        { "id": "edit3", "text": "持久化保存", "shape": "rectangle", "x": 7.2, "y": 2.3, "w": 2, "h": 0.7, "fill": "#ECFDF5", "line": "#10B981" },
+        { "id": "del", "text": "删除物资", "shape": "rectangle", "x": 10.6, "y": 6.5, "w": 2, "h": 0.7, "fill": "#FEE2E2", "line": "#DC2626" },
+        { "id": "del1", "text": "根据ID查询物资", "shape": "rectangle", "x": 10.6, "y": 5.2, "w": 2, "h": 0.7, "fill": "#FEE2E2", "line": "#DC2626" },
+        { "id": "del2", "text": "软删除\nenabled = false", "shape": "rectangle", "x": 10.5, "y": 3.7, "w": 2.2, "h": 1, "fill": "#FEE2E2", "line": "#DC2626" },
+        { "id": "del3", "text": "保留历史数据", "shape": "rectangle", "x": 10.6, "y": 2.3, "w": 2, "h": 0.7, "fill": "#FEE2E2", "line": "#DC2626" },
+        { "id": "search", "text": "物资搜索", "shape": "rectangle", "x": 3.8, "y": 0.8, "w": 2, "h": 0.7, "fill": "#EFF6FF", "line": "#3B82F6" },
+        { "id": "search1", "text": "按名称模糊匹配", "shape": "rectangle", "x": 6, "y": 0.8, "w": 2.4, "h": 0.7, "fill": "#FEF3C7", "line": "#D97706" },
+        { "id": "search2", "text": "SQL: WHERE name LIKE '%xxx%'", "shape": "rectangle", "x": 9, "y": 0.8, "w": 3.4, "h": 0.7, "fill": "#FEF3C7", "line": "#D97706" }
+      ],
+      "connections": [
+        { "from": "start", "to": "add", "text": "新增" },
+        { "from": "start", "to": "list", "text": "列表" },
+        { "from": "start", "to": "edit", "text": "修改" },
+        { "from": "start", "to": "del", "text": "删除" },
+        { "from": "start", "to": "search", "text": "搜索" },
+        { "from": "add", "to": "add1" },
+        { "from": "add1", "to": "add2" },
+        { "from": "add2", "to": "add3", "text": "唯一" },
+        { "from": "list", "to": "list1" },
+        { "from": "list1", "to": "list2" },
+        { "from": "list2", "to": "list3" },
+        { "from": "edit", "to": "edit1" },
+        { "from": "edit1", "to": "edit2" },
+        { "from": "edit2", "to": "edit3" },
+        { "from": "del", "to": "del1" },
+        { "from": "del1", "to": "del2" },
+        { "from": "del2", "to": "del3" },
+        { "from": "search", "to": "search1" },
+        { "from": "search1", "to": "search2" }
+      ]
+    }
+  ]
+}

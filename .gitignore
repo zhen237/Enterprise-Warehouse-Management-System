@@ -1,0 +1,49 @@
+# Backend - Spring Boot
+backend/target/
+backend/*.jar
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# Frontend - Vue
+frontend/node_modules/
+frontend/dist/
+frontend/.DS_Store
+frontend/*.local
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.bak
+
+# Build artifacts
+*.jar
+*.zip
+
+# Delivery folder (keep in repo for reference but not large files)
+交付物/*.jar
+交付物/*.zip
+
+# Large media files
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.mkv
+*.flv
+*.zip
+*.rar
+*.7z

@@ -1,0 +1,56 @@
+{
+  "title": "仓库出入库管理 - 业务逻辑图",
+  "pageWidth": 14,
+  "pageHeight": 9,
+  "pages": [
+    {
+      "name": "仓库出入库管理",
+      "nodes": [
+        { "id": "inStart", "text": "入库申请", "shape": "rectangle", "x": 0.5, "y": 7.8, "w": 2, "h": 0.7, "fill": "#EFF6FF", "line": "#3B82F6" },
+        { "id": "inApply", "text": "生成入库单\n编号: RK+时间戳", "shape": "rectangle", "x": 0.4, "y": 6.5, "w": 2.2, "h": 0.9, "fill": "#FEF3C7", "line": "#D97706" },
+        { "id": "inConfirm", "text": "入库确认", "shape": "rectangle", "x": 0.5, "y": 5.3, "w": 2, "h": 0.7, "fill": "#EFF6FF", "line": "#3B82F6" },
+        { "id": "inMerge", "text": "更新库存\n(累加数量)", "shape": "rectangle", "x": 0.4, "y": 3.9, "w": 2.2, "h": 1, "fill": "#ECFDF5", "line": "#10B981" },
+        { "id": "inMark", "text": "标记已确认", "shape": "rectangle", "x": 0.5, "y": 2.6, "w": 2, "h": 0.7, "fill": "#ECFDF5", "line": "#10B981" },
+        { "id": "inEnd", "text": "入库完成", "shape": "ellipse", "x": 0.7, "y": 1.3, "w": 1.6, "h": 0.7, "fill": "#ECFDF5", "line": "#10B981" },
+        { "id": "outStart", "text": "出库申请", "shape": "rectangle", "x": 4.5, "y": 7.8, "w": 2, "h": 0.7, "fill": "#EFF6FF", "line": "#3B82F6" },
+        { "id": "outCheck", "text": "校验库存是否充足?", "shape": "diamond", "x": 4.3, "y": 6.5, "w": 2.4, "h": 1, "fill": "#FEF3C7", "line": "#D97706" },
+        { "id": "outApply", "text": "生成出库单\n编号: CK+时间戳", "shape": "rectangle", "x": 4.4, "y": 5.3, "w": 2.2, "h": 0.9, "fill": "#FEF3C7", "line": "#D97706" },
+        { "id": "outConfirm", "text": "出库确认", "shape": "rectangle", "x": 4.5, "y": 3.9, "w": 2, "h": 0.7, "fill": "#EFF6FF", "line": "#3B82F6" },
+        { "id": "outReduce", "text": "扣减库存\n(减少数量)", "shape": "rectangle", "x": 4.4, "y": 2.6, "w": 2.2, "h": 1, "fill": "#ECFDF5", "line": "#10B981" },
+        { "id": "outEnd", "text": "出库完成", "shape": "ellipse", "x": 4.7, "y": 1.3, "w": 1.6, "h": 0.7, "fill": "#ECFDF5", "line": "#10B981" },
+        { "id": "err1", "text": "库存不足", "shape": "rectangle", "x": 4.5, "y": 0.2, "w": 2, "h": 0.7, "fill": "#FEE2E2", "line": "#DC2626" },
+        { "id": "ckStart", "text": "盘点申请", "shape": "rectangle", "x": 8.5, "y": 7.8, "w": 2, "h": 0.7, "fill": "#EFF6FF", "line": "#3B82F6" },
+        { "id": "ckCalc", "text": "获取系统库存数量", "shape": "rectangle", "x": 8.4, "y": 6.5, "w": 2.2, "h": 0.7, "fill": "#EFF6FF", "line": "#3B82F6" },
+        { "id": "ckDiff", "text": "计算差异\n差异 = 实际 - 系统", "shape": "rectangle", "x": 8.3, "y": 5.3, "w": 2.4, "h": 0.9, "fill": "#FEF3C7", "line": "#D97706" },
+        { "id": "ckGen", "text": "生成盘点单\n编号: PD+时间戳", "shape": "rectangle", "x": 8.4, "y": 3.9, "w": 2.2, "h": 0.9, "fill": "#FEF3C7", "line": "#D97706" },
+        { "id": "ckConfirm", "text": "盘点确认", "shape": "rectangle", "x": 8.5, "y": 2.6, "w": 2, "h": 0.7, "fill": "#EFF6FF", "line": "#3B82F6" },
+        { "id": "ckOver", "text": "覆盖库存为实际数量", "shape": "rectangle", "x": 8.2, "y": 1.3, "w": 2.6, "h": 0.7, "fill": "#ECFDF5", "line": "#10B981" },
+        { "id": "api1", "text": "API: POST /api/inventory/inbound", "shape": "rectangle", "x": 11.8, "y": 7.8, "w": 2.8, "h": 0.7, "fill": "#F5F3FF", "line": "#8B5CF6" },
+        { "id": "api2", "text": "API: POST /api/inventory/outbound", "shape": "rectangle", "x": 11.8, "y": 5.3, "w": 2.8, "h": 0.7, "fill": "#F5F3FF", "line": "#8B5CF6" },
+        { "id": "api3", "text": "API: POST /api/inventory/check", "shape": "rectangle", "x": 11.8, "y": 2.6, "w": 2.8, "h": 0.7, "fill": "#F5F3FF", "line": "#8B5CF6" },
+        { "id": "note", "text": "注: 所有操作均采用两步确认制\n@Transactional 保证数据一致性", "shape": "rectangle", "x": 11.6, "y": 1, "w": 3.2, "h": 1, "fill": "#FEF3C7", "line": "#D97706" }
+      ],
+      "connections": [
+        { "from": "inStart", "to": "inApply", "text": "申请" },
+        { "from": "inApply", "to": "inConfirm", "text": "确认" },
+        { "from": "inConfirm", "to": "inMerge", "text": "累加" },
+        { "from": "inMerge", "to": "inMark" },
+        { "from": "inMark", "to": "inEnd" },
+        { "from": "outStart", "to": "outCheck", "text": "申请" },
+        { "from": "outCheck", "to": "outApply", "text": "充足" },
+        { "from": "outCheck", "to": "err1", "text": "不足" },
+        { "from": "outApply", "to": "outConfirm", "text": "确认" },
+        { "from": "outConfirm", "to": "outReduce", "text": "扣减" },
+        { "from": "outReduce", "to": "outEnd" },
+        { "from": "ckStart", "to": "ckCalc", "text": "申请" },
+        { "from": "ckCalc", "to": "ckDiff", "text": "计算" },
+        { "from": "ckDiff", "to": "ckGen", "text": "生成" },
+        { "from": "ckGen", "to": "ckConfirm", "text": "确认" },
+        { "from": "ckConfirm", "to": "ckOver", "text": "覆盖" },
+        { "from": "api1", "to": "inStart" },
+        { "from": "api2", "to": "outStart" },
+        { "from": "api3", "to": "ckStart" }
+      ]
+    }
+  ]
+}

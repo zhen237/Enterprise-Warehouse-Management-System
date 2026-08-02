@@ -1,0 +1,65 @@
+# GitHub Pages 自动部署工作流
+# 每次推送到 master 分支时自动构建并部署到 GitHub Pages
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# 部署所需权限
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 只允许一个并发部署
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build with GitHub Pages base path
+        working-directory: ./frontend
+        env:
+          # 设置 base 路径为仓库名（GitHub Pages 的子路径）
+          VITE_BASE: /Enterprise-Warehouse-Management-System/
+        run: npm run build
+
+      - name: Create 404.html for SPA fallback
+        run: |
+          # GitHub Pages 不支持 SPA 路由，需要添加 404.html 重定向
+          cp frontend/dist/index.html frontend/dist/404.html
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./frontend/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

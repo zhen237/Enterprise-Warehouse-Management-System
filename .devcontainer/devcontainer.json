@@ -1,0 +1,30 @@
+{
+  "name": "Enterprise-Warehouse-Management-System",
+  "image": "mcr.microsoft.com/devcontainers/java:21-ubuntu-22.04",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "nodeVersion": "20"
+    }
+  },
+  "forwardPorts": [
+    3306,
+    5173,
+    8080
+  ],
+  "postCreateCommand": "apt-get update -y > /dev/null 2>&1; apt-get install -y mysql-server > /dev/null 2>&1; npm --prefix /workspace/frontend install > /dev/null 2>&1; echo '=== 环境就绪 ==='; echo 'Java:'; java -version 2>&1 | head -1; echo 'Node:'; node -v; echo 'MySQL:'; mysql --version; echo '运行 bash .devcontainer/start.sh 启动项目'",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "redhat.java",
+        "vscjava.vscode-maven",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint"
+      ],
+      "settings": {
+        "java.configuration.maven.userSettings": "/root/.m2/settings.xml",
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  }
+}

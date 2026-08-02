@@ -1,0 +1,72 @@
+# Render Blueprint 配置文件
+# 用于一键部署企业仓库管理系统到 Render 平台
+#
+# 部署步骤：
+#   1. 在 https://render.com 注册账号（可用 GitHub 登录）
+#   2. 进入 Dashboard → New → Blueprint
+#   3. 选择本仓库，Render 会自动读取 render.yaml
+#   4. 点击 Apply 开始部署
+#
+# 部署后的服务地址（根据你的服务名自动生成）：
+#   - 后端 API：https://warehouse-backend.onrender.com
+#   - 前端页面：https://warehouse-frontend.onrender.com
+#
+# 注意：
+#   - Render 免费版数据库有 90 天有效期
+#   - 免费版 Web Service 15 分钟无请求会休眠，首次访问需等待约 30-60 秒唤醒
+
+# ========== 数据库 ==========
+databases:
+  - name: warehouse-db
+    databaseName: warehouse_db
+    ipAllowList: []   # 允许所有 IP 访问（生产环境建议限制）
+
+# ========== 后端服务 ==========
+services:
+  - type: web
+    name: warehouse-backend
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/products
+    autoDeploy: true
+    envVars:
+      # 数据库连接（自动从 warehouse-db 获取）
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: warehouse-db
+          property: jdbcConnectionString
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: warehouse-db
+          property: username
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: warehouse-db
+          property: password
+      # CORS 允许的前端域名
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://warehouse-frontend.onrender.com
+      # 日志级别
+      - key: LOG_LEVEL
+        value: INFO
+
+  # ========== 前端静态站点 ==========
+  - type: web
+    name: warehouse-frontend
+    runtime: static
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/dist
+    autoDeploy: true
+    pullRequestPreviewsEnabled: false
+    envVars:
+      # 前端通过此变量连接后端 API
+      - key: VITE_API_BASE_URL
+        value: https://warehouse-backend.onrender.com/api
+    routes:
+      # SPA 路由支持：所有路径重写到 index.html
+      - type: rewrite
+        source: /*
+        destination: /index.html
