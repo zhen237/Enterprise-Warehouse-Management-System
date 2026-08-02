@@ -18,6 +18,44 @@ import {
 } from './data.js'
 
 /**
+ * 将 Mock 商品数据转换为后端 API 格式
+ */
+function transformProduct(p) {
+  return {
+    id: p.id,
+    productCode: p.productCode,
+    productName: p.name || p.productName,
+    category: p.category,
+    unit: p.unit,
+    price: p.price,
+    minStock: p.minStock,
+    maxStock: p.maxStock,
+    description: p.description,
+    supplier: p.supplier || { supplierName: '默认供应商' }
+  }
+}
+
+/**
+ * 将 Mock 仓库数据转换为后端 API 格式
+ */
+function transformWarehouse(w) {
+  const totalItems = mockInventories
+    .filter(i => i.warehouseId === w.id)
+    .map(i => i.productId)
+    .filter((v, i, a) => a.indexOf(v) === i)
+    .length
+  return {
+    id: w.id,
+    warehouseCode: w.warehouseCode,
+    warehouseName: w.name || w.warehouseName,
+    location: w.address || w.location,
+    manager: w.manager,
+    totalValue: w.totalValue || 0,
+    totalItems: totalItems
+  }
+}
+
+/**
  * 根据请求路径和方法返回对应的 Mock 数据
  */
 export function getMockResponse(url, method, data) {
@@ -35,21 +73,26 @@ export function getMockResponse(url, method, data) {
           const inv = mockInventories.find(i => i.productId === p.id)
           return inv && inv.quantity < p.minStock
         })
-        return mockResponse(lowStock)
+        return mockResponse(lowStock.map(transformProduct))
       }
-      return mockResponse(mockProducts)
+      if (url.includes('/search')) {
+        const keyword = url.split('name=')[1] || ''
+        const filtered = mockProducts.filter(p => p.name.includes(keyword))
+        return mockResponse(filtered.map(transformProduct))
+      }
+      return mockResponse(mockProducts.map(transformProduct))
     }
     if (method === 'post') {
       const newProduct = { ...data, id: mockProducts.length + 1 }
       mockProducts.push(newProduct)
-      return mockResponse(newProduct)
+      return mockResponse(transformProduct(newProduct))
     }
     if (method === 'put') {
       const id = parseInt(url.split('/').pop())
       const idx = mockProducts.findIndex(p => p.id === id)
       if (idx !== -1) {
         mockProducts[idx] = { ...mockProducts[idx], ...data }
-        return mockResponse(mockProducts[idx])
+        return mockResponse(transformProduct(mockProducts[idx]))
       }
     }
     if (method === 'delete') {
@@ -72,26 +115,26 @@ export function getMockResponse(url, method, data) {
             .reduce((sum, i) => sum + i.quantity, 0)
           return {
             id: w.id,
-            name: w.name,
+            warehouseName: w.name,
             totalStock,
             totalValue: w.totalValue
           }
         })
         return mockResponse(stats)
       }
-      return mockResponse(mockWarehouses)
+      return mockResponse(mockWarehouses.map(transformWarehouse))
     }
     if (method === 'post') {
       const newWH = { ...data, id: mockWarehouses.length + 1 }
       mockWarehouses.push(newWH)
-      return mockResponse(newWH)
+      return mockResponse(transformWarehouse(newWH))
     }
     if (method === 'put') {
       const id = parseInt(url.split('/').pop())
       const idx = mockWarehouses.findIndex(w => w.id === id)
       if (idx !== -1) {
         mockWarehouses[idx] = { ...mockWarehouses[idx], ...data }
-        return mockResponse(mockWarehouses[idx])
+        return mockResponse(transformWarehouse(mockWarehouses[idx]))
       }
     }
     if (method === 'delete') {
@@ -111,16 +154,27 @@ export function getMockResponse(url, method, data) {
         const product = mockProducts.find(p => p.id === inv.productId)
         const warehouse = mockWarehouses.find(w => w.id === inv.warehouseId)
         return {
-          ...inv,
-          productName: product?.name || '未知商品',
-          productCode: product?.productCode || '',
-          productUnit: product?.unit || '',
-          warehouseName: warehouse?.name || '未知仓库',
-          warehouseCode: warehouse?.warehouseCode || '',
-          price: product?.price || 0,
-          totalValue: (product?.price || 0) * inv.quantity,
+          id: inv.id,
+          productId: inv.productId,
+          warehouseId: inv.warehouseId,
+          quantity: inv.quantity,
+          lastUpdated: inv.lastUpdated,
+          product: {
+            id: product?.id,
+            productCode: product?.productCode || '',
+            productName: product?.name || '未知商品',
+            category: product?.category || '',
+            unit: product?.unit || '',
+            price: product?.price || 0
+          },
+          warehouse: {
+            id: warehouse?.id,
+            warehouseCode: warehouse?.warehouseCode || '',
+            warehouseName: warehouse?.name || '未知仓库'
+          },
           minStock: product?.minStock || 0,
-          maxStock: product?.maxStock || 9999
+          maxStock: product?.maxStock || 9999,
+          totalValue: (product?.price || 0) * inv.quantity
         }
       })
       return mockResponse(inventory)
