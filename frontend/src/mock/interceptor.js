@@ -1,5 +1,7 @@
 /**
  * Mock API 拦截器
+ * 
+ * 通过覆盖 axios 适配器实现 Mock 模式
  * 当后端 API 不可用时（如 GitHub Pages 纯静态部署），直接返回 Mock 数据
  */
 import {
@@ -154,15 +156,17 @@ function transformCheck(record) {
 // ========== 主响应函数 ==========
 
 export function getMockResponse(url, method, data) {
+  const m = method.toLowerCase()
+
   // 登录接口
-  if (url.includes('/auth/login') && method === 'post') {
+  if (url.includes('/auth/login') && m === 'post') {
     const user = mockLogin(data.username, data.password)
     return mockResponse(user)
   }
 
   // 商品接口
   if (url.includes('/products') && !url.includes('/warehouse')) {
-    if (method === 'get') {
+    if (m === 'get') {
       if (url.includes('/low-stock')) {
         const lowStock = mockProducts.filter(p => {
           const inv = mockInventories.find(i => i.productId === p.id)
@@ -177,12 +181,12 @@ export function getMockResponse(url, method, data) {
       }
       return mockResponse(mockProducts.map(transformProduct))
     }
-    if (method === 'post') {
+    if (m === 'post') {
       const newProduct = { ...data, id: mockProducts.length + 1 }
       mockProducts.push(newProduct)
       return mockResponse(transformProduct(newProduct))
     }
-    if (method === 'put') {
+    if (m === 'put') {
       const id = parseInt(url.split('/').pop())
       const idx = mockProducts.findIndex(p => p.id === id)
       if (idx !== -1) {
@@ -190,7 +194,7 @@ export function getMockResponse(url, method, data) {
         return mockResponse(transformProduct(mockProducts[idx]))
       }
     }
-    if (method === 'delete') {
+    if (m === 'delete') {
       const id = parseInt(url.split('/').pop())
       const idx = mockProducts.findIndex(p => p.id === id)
       if (idx !== -1) {
@@ -202,29 +206,22 @@ export function getMockResponse(url, method, data) {
 
   // 仓库接口
   if (url.includes('/warehouses')) {
-    if (method === 'get') {
+    if (m === 'get') {
       if (url.includes('/statistics')) {
         const stats = mockWarehouses.map(w => {
-          const totalStock = mockInventories
-            .filter(i => i.warehouseId === w.id)
-            .reduce((sum, i) => sum + i.quantity, 0)
-          return {
-            id: w.id,
-            warehouseName: w.name,
-            totalStock,
-            totalValue: w.totalValue
-          }
+          const totalStock = mockInventories.filter(i => i.warehouseId === w.id).reduce((sum, i) => sum + i.quantity, 0)
+          return { id: w.id, warehouseName: w.name, totalStock, totalValue: w.totalValue }
         })
         return mockResponse(stats)
       }
       return mockResponse(mockWarehouses.map(transformWarehouse))
     }
-    if (method === 'post') {
+    if (m === 'post') {
       const newWH = { ...data, id: mockWarehouses.length + 1 }
       mockWarehouses.push(newWH)
       return mockResponse(transformWarehouse(newWH))
     }
-    if (method === 'put') {
+    if (m === 'put') {
       const id = parseInt(url.split('/').pop())
       const idx = mockWarehouses.findIndex(w => w.id === id)
       if (idx !== -1) {
@@ -232,7 +229,7 @@ export function getMockResponse(url, method, data) {
         return mockResponse(transformWarehouse(mockWarehouses[idx]))
       }
     }
-    if (method === 'delete') {
+    if (m === 'delete') {
       const id = parseInt(url.split('/').pop())
       const idx = mockWarehouses.findIndex(w => w.id === id)
       if (idx !== -1) {
@@ -242,49 +239,42 @@ export function getMockResponse(url, method, data) {
     }
   }
 
-  // 库存查询接口（GET /inventory）
-  if (url === '/inventory' || (url.includes('/inventory') && !url.includes('inbound') && !url.includes('outbound'))) {
-    if (method === 'get') {
+  // 库存查询（GET /inventory，排除 inbound/outbound）
+  if ((url === '/inventory' || url.includes('/inventory')) && !url.includes('inbound') && !url.includes('outbound') && !url.includes('check')) {
+    if (m === 'get') {
       return mockResponse(mockInventories.map(transformInventory))
     }
   }
 
-  // 入库接口（/inventory/inbound）
-  if (url.includes('/inventory/inbound') || url === '/inbound') {
-    if (method === 'get') {
+  // 入库接口
+  if (url.includes('inbound') && !url.includes('outbound')) {
+    if (m === 'get') {
       return mockResponse(mockInboundRecords.map(transformInbound))
     }
-    if (method === 'post') {
-      // 确认入库
+    if (m === 'post') {
       if (url.includes('/confirm')) {
-        const id = parseInt(url.split('/').slice(-2)[0])
+        const parts = url.split('/')
+        const id = parseInt(parts[parts.length - 2])
         const record = mockInboundRecords.find(r => r.id === id)
         if (record) {
           record.confirmed = true
-          // 更新库存
           const inv = mockInventories.find(i => i.productId === record.productId && i.warehouseId === record.warehouseId)
+          const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
           if (inv) {
             inv.quantity += record.quantity
-            inv.lastUpdated = new Date().toISOString().replace('T', ' ').substring(0, 19)
+            inv.lastUpdated = now
           } else {
-            mockInventories.push({
-              id: mockInventories.length + 1,
-              productId: record.productId,
-              warehouseId: record.warehouseId,
-              quantity: record.quantity,
-              lastUpdated: new Date().toISOString().replace('T', ' ').substring(0, 19)
-            })
+            mockInventories.push({ id: mockInventories.length + 1, productId: record.productId, warehouseId: record.warehouseId, quantity: record.quantity, lastUpdated: now })
           }
         }
         return mockResponse({ success: true })
       }
-      // 新建入库
       const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
       const newRecord = {
         ...data,
         id: mockInboundRecords.length + 1,
         inboundNo: `IN${String(mockInboundRecords.length + 1).padStart(6, '0')}`,
-        totalPrice: data.quantity * data.unitPrice,
+        totalPrice: (data.quantity || 0) * (data.unitPrice || 0),
         confirmed: false,
         inboundTime: now,
         createdAt: now
@@ -294,22 +284,19 @@ export function getMockResponse(url, method, data) {
     }
   }
 
-  // 出库接口（/inventory/outbound）
-  if (url.includes('/inventory/outbound') || url === '/outbound') {
-    if (method === 'get') {
+  // 出库接口
+  if (url.includes('outbound')) {
+    if (m === 'get') {
       return mockResponse(mockOutboundRecords.map(transformOutbound))
     }
-    if (method === 'post') {
-      // 确认出库
+    if (m === 'post') {
       if (url.includes('/confirm')) {
-        const id = parseInt(url.split('/').slice(-2)[0])
+        const parts = url.split('/')
+        const id = parseInt(parts[parts.length - 2])
         const record = mockOutboundRecords.find(r => r.id === id)
-        if (record) {
-          record.confirmed = true
-        }
+        if (record) record.confirmed = true
         return mockResponse({ success: true })
       }
-      // 新建出库
       const inv = mockInventories.find(i => i.productId === data.productId && i.warehouseId === data.warehouseId)
       if (!inv || inv.quantity < data.quantity) {
         throw new Error('库存不足')
@@ -319,7 +306,7 @@ export function getMockResponse(url, method, data) {
         ...data,
         id: mockOutboundRecords.length + 1,
         outboundNo: `OUT${String(mockOutboundRecords.length + 1).padStart(6, '0')}`,
-        totalPrice: data.quantity * data.unitPrice,
+        totalPrice: (data.quantity || 0) * (data.unitPrice || 0),
         confirmed: false,
         outboundTime: now,
         createdAt: now
@@ -331,12 +318,12 @@ export function getMockResponse(url, method, data) {
     }
   }
 
-  // 盘点接口（/inventory/check 或 /check）
-  if (url.includes('/inventory/check') || url === '/check' || url.includes('/check/records')) {
-    if (method === 'get') {
+  // 盘点接口
+  if (url.includes('check')) {
+    if (m === 'get') {
       return mockResponse(mockInventoryChecks.map(transformCheck))
     }
-    if (method === 'post') {
+    if (m === 'post') {
       const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
       const newRecord = {
         ...data,
@@ -346,7 +333,6 @@ export function getMockResponse(url, method, data) {
         createdAt: now
       }
       mockInventoryChecks.push(newRecord)
-      // 更新库存
       data.items?.forEach(item => {
         const inv = mockInventories.find(i => i.productId === item.productId && i.warehouseId === data.warehouseId)
         if (inv) {
@@ -360,7 +346,7 @@ export function getMockResponse(url, method, data) {
 
   // 用户接口
   if (url.includes('/users')) {
-    if (method === 'get') {
+    if (m === 'get') {
       return mockResponse(mockUsers.map(u => ({
         id: u.id,
         username: u.username,
@@ -369,12 +355,12 @@ export function getMockResponse(url, method, data) {
         enabled: u.enabled
       })))
     }
-    if (method === 'post') {
+    if (m === 'post') {
       const newUser = { ...data, id: mockUsers.length + 1, enabled: true }
       mockUsers.push(newUser)
       return mockResponse({ id: newUser.id, username: newUser.username, name: newUser.name, role: newUser.role, enabled: true })
     }
-    if (method === 'put') {
+    if (m === 'put') {
       const id = parseInt(url.split('/').pop())
       const idx = mockUsers.findIndex(u => u.id === id)
       if (idx !== -1) {
@@ -382,7 +368,7 @@ export function getMockResponse(url, method, data) {
         return mockResponse({ ...mockUsers[idx], password: undefined })
       }
     }
-    if (method === 'delete') {
+    if (m === 'delete') {
       const id = parseInt(url.split('/').pop())
       const idx = mockUsers.findIndex(u => u.id === id)
       if (idx !== -1) {
@@ -400,13 +386,12 @@ export function getMockResponse(url, method, data) {
     if (url.includes('/category')) {
       return mockResponse(mockStatistics.categoryData)
     }
-    // 首页统计数据
     return mockResponse({
       totalProducts: mockProducts.length,
       totalWarehouses: mockWarehouses.length,
       totalStockValue: mockInventories.reduce((sum, i) => {
-        const product = mockProducts.find(p => p.id === i.productId)
-        return sum + (product?.price || 0) * i.quantity
+        const p = mockProducts.find(pr => pr.id === i.productId)
+        return sum + (p?.price || 0) * i.quantity
       }, 0),
       lowStockAlerts: mockProducts.filter(p => {
         const inv = mockInventories.find(i => i.productId === p.id)
@@ -429,12 +414,17 @@ export function getMockResponse(url, method, data) {
 }
 
 /**
- * 安装 Mock 拦截器
+ * 安装 Mock 适配器
+ * 通过覆盖 axios 适配器，直接返回 Mock 数据，不发送真实请求
  */
 export function installMockInterceptor(api) {
-  api.interceptors.request.use((config) => {
+  // 保存原始适配器
+  const originalAdapter = api.defaults.adapter
+
+  // 替换为 Mock 适配器
+  api.defaults.adapter = function (config) {
     if (!isMockMode()) {
-      return config
+      return originalAdapter(config)
     }
 
     const url = config.url || ''
@@ -457,7 +447,7 @@ export function installMockInterceptor(api) {
         }
       }, 100)
     })
-  })
+  }
 }
 
 export { isMockMode }
