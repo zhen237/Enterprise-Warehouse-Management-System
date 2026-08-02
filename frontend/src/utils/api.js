@@ -1,55 +1,53 @@
 /**
  * HTTP 请求封装
  * 
- * Mock 模式处理策略（最可靠方案）：
- *   - 创建独立的 Mock 客户端，完全绕过 axios
- *   - 根据 isMockMode() 动态切换
- *   - 双重保障：请求拦截器 + 错误降级
+ * 策略：
+ *   1. 创建独立的 Mock 客户端对象
+ *   2. 根据 isMockMode() 动态切换
+ *   3. 错误时自动降级为 Mock
  */
 import axios from 'axios'
 import { getMockResponse } from '@/mock/interceptor.js'
 import { enableMockMode, isMockMode as checkMockMode } from '@/mock/data.js'
 
 // ========== Mock 客户端 ==========
-// 一个简单的对象，模拟 axios 的 get/post/put/delete 方法
 const mockClient = {
   get(url, config) {
-    return handleMockRequest(url, 'get', null, config)
+    return handleMock(url, 'get', null)
   },
   post(url, data, config) {
-    return handleMockRequest(url, 'post', data, config)
+    return handleMock(url, 'post', data)
   },
   put(url, data, config) {
-    return handleMockRequest(url, 'put', data, config)
+    return handleMock(url, 'put', data)
   },
   delete(url, config) {
-    return handleMockRequest(url, 'delete', null, config)
-  },
-  request(config) {
-    return handleMockRequest(config.url, (config.method || 'get').toLowerCase(), config.data, config)
+    return handleMock(url, 'delete', null)
   }
 }
 
-function handleMockRequest(url, method, data, config) {
+function handleMock(url, method, data) {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       try {
         const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
-        const fullUrl = url.startsWith('http') ? url : (url.startsWith('/') ? baseURL + url : baseURL + '/' + url)
-        const mockResult = getMockResponse(fullUrl, method, data || {})
-        
-        // 处理响应格式
-        if (mockResult?.code === 200) {
-          resolve(mockResult.data ?? mockResult)
-        } else if (mockResult?.code !== undefined) {
-          reject(new Error(mockResult.message || '请求失败'))
-        } else {
-          resolve(mockResult)
+        let fullUrl = url
+        if (!url.startsWith('http')) {
+          fullUrl = baseURL + (url.startsWith('/') ? url : '/' + url)
         }
-      } catch (error) {
-        reject(new Error(error.message || '请求失败'))
+        const result = getMockResponse(fullUrl, method, data || {})
+        
+        if (result?.code === 200) {
+          resolve(result.data ?? result)
+        } else if (result?.code !== undefined) {
+          reject(new Error(result.message || '请求失败'))
+        } else {
+          resolve(result)
+        }
+      } catch (e) {
+        reject(new Error(e.message || '请求失败'))
       }
-    }, 50)
+    }, 30)
   })
 }
 
@@ -59,7 +57,7 @@ const realApi = axios.create({
   timeout: 10000
 })
 
-// 响应拦截器 - 错误时尝试 Mock 降级
+// 响应拦截 - 处理 Mock 格式 + 错误降级
 realApi.interceptors.response.use(
   response => {
     if (response.data?.code !== undefined) {
@@ -77,40 +75,50 @@ realApi.interceptors.response.use(
     const method = (config.method || 'get').toLowerCase()
     const data = config.data ? (typeof config.data === 'string' ? JSON.parse(config.data) : config.data) : {}
 
-    // 请求失败 → 自动降级到 Mock 模式
+    // 失败则降级到 Mock
+    if (!checkMockMode()) {
+      enableMockMode()
+      console.warn('🚀 检测到后端不可用，自动切换到 Mock 演示模式')
+    }
+    
     try {
-      if (!checkMockMode()) {
-        enableMockMode()
-        console.warn('🚀 检测到后端不可用，自动切换到 Mock 演示模式')
+      const result = getMockResponse(url, method, data)
+      if (result?.code === 200) {
+        return result.data ?? result
       }
-      const mockData = getMockResponse(url, method, data)
-      if (mockData?.code === 200) {
-        return mockData.data ?? mockData
-      }
-      return mockData
-    } catch (mockError) {
-      return Promise.reject(new Error(mockError.message || '请求失败'))
+      return result
+    } catch (e) {
+      return Promise.reject(new Error(e.message || '请求失败'))
     }
   }
 )
 
-// ========== 导出智能客户端 ==========
-// 根据当前模式自动选择 Mock 或真实客户端
-const api = new Proxy(realApi, {
-  get(target, prop) {
-    if (prop === 'get' || prop === 'post' || prop === 'put' || prop === 'delete' || prop === 'request') {
-      return function(...args) {
-        if (checkMockMode()) {
-          return mockClient[prop](...args)
-        }
-        return target[prop](...args)
-      }
-    }
-    return target[prop]
-  }
-})
+// ========== 导出：根据模式选择客户端 ==========
+function apiGet(url, config) {
+  return checkMockMode() ? mockClient.get(url, config) : realApi.get(url, config)
+}
 
-// 重新导出
+function apiPost(url, data, config) {
+  return checkMockMode() ? mockClient.post(url, data, config) : realApi.post(url, data, config)
+}
+
+function apiPut(url, data, config) {
+  return checkMockMode() ? mockClient.put(url, data, config) : realApi.put(url, data, config)
+}
+
+function apiDelete(url, config) {
+  return checkMockMode() ? mockClient.delete(url, config) : realApi.delete(url, config)
+}
+
+const api = {
+  get: apiGet,
+  post: apiPost,
+  put: apiPut,
+  delete: apiDelete,
+  // 暴露给其他地方使用
+  axios: realApi
+}
+
 export function isMockMode() {
   return checkMockMode()
 }
